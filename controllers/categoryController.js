@@ -46,3 +46,46 @@ exports.deleteCategory = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.reorderCategory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { order } = req.body;
+        
+        if (!order && order !== 0) {
+            return res.status(400).json({ message: "Order is required" });
+        }
+        
+        // Get the category to reorder
+        const categoryToReorder = await Category.findById(id);
+        if (!categoryToReorder) {
+            return res.status(404).json({ message: "Category not found" });
+        }
+        
+        const oldOrder = categoryToReorder.order;
+        const newOrder = parseInt(order);
+        
+        // Update categories affected by the reordering
+        if (oldOrder < newOrder) {
+            // Moving down in the list
+            await Category.updateMany(
+                { order: { $gt: oldOrder, $lte: newOrder } },
+                { $inc: { order: -1 } }
+            );
+        } else if (oldOrder > newOrder) {
+            // Moving up in the list
+            await Category.updateMany(
+                { order: { $lt: oldOrder, $gte: newOrder } },
+                { $inc: { order: 1 } }
+            );
+        }
+        
+        // Update the category's order
+        categoryToReorder.order = newOrder;
+        await categoryToReorder.save();
+        
+        res.json({ message: "Category reordered successfully", category: categoryToReorder });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

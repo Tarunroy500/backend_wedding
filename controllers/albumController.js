@@ -13,53 +13,16 @@ exports.createAlbum = async (req, res) => {
 };
 
 exports.getAlbums = async (req, res) => {
-    try {
-        const { categoryId } = req.query;
-        let query = {};
-        
-        if (categoryId) {
-            query.categoryId = categoryId;
-        }
-        
-        const albums = await Album.find(query)
-            .populate("categoryId")
-            .sort({ order: 1 });
-            
-        // For albums without a cover image, set a random image from the album
-        for (let album of albums) {
-            if (!album.coverImage) {
-                const images = await Image.find({ albumId: album._id });
-                if (images.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * images.length);
-                    album.coverImage = images[randomIndex].imageUrl;
-                    await album.save();
-                }
-            }
-        }
-        
-        res.json(albums);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    const albums = await Album.find().sort({ order: 1 });
+    res.json(albums);
 };
 
 exports.getAlbumById = async (req, res) => {
     try {
-        const album = await Album.findById(req.params.id).populate("categoryId");
+        const album = await Album.findById(req.params.id);
         if (!album) {
             return res.status(404).json({ message: "Album not found" });
         }
-        
-        // If no cover image, set a random image from the album
-        if (!album.coverImage) {
-            const images = await Image.find({ albumId: album._id });
-            if (images.length > 0) {
-                const randomIndex = Math.floor(Math.random() * images.length);
-                album.coverImage = images[randomIndex].imageUrl;
-                await album.save();
-            }
-        }
-        
         res.json(album);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -68,12 +31,8 @@ exports.getAlbumById = async (req, res) => {
 
 exports.updateAlbum = async (req, res) => {
     try {
-        const { name, coverImage, order } = req.body;
-        const album = await Album.findByIdAndUpdate(
-            req.params.id, 
-            { name, coverImage, order }, 
-            { new: true }
-        );
+        const { name, categoryId, coverImage, order } = req.body;
+        const album = await Album.findByIdAndUpdate(req.params.id, { name, categoryId, coverImage, order }, { new: true });
         res.json(album);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -84,6 +43,59 @@ exports.deleteAlbum = async (req, res) => {
     try {
         await Album.findByIdAndDelete(req.params.id);
         res.json({ message: "Album deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.reorderAlbum = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { order, categoryId } = req.body;
+        
+        if (!order && order !== 0) {
+            return res.status(400).json({ message: "Order is required" });
+        }
+        
+        if (!categoryId) {
+            return res.status(400).json({ message: "Category ID is required" });
+        }
+        
+        // Get the album to reorder
+        const albumToReorder = await Album.findById(id);
+        if (!albumToReorder) {
+            return res.status(404).json({ message: "Album not found" });
+        }
+        
+        const oldOrder = albumToReorder.order;
+        const newOrder = parseInt(order);
+        
+        // Update albums affected by the reordering in the same category
+        if (oldOrder < newOrder) {
+            // Moving down in the list
+            await Album.updateMany(
+                { 
+                    categoryId,
+                    order: { $gt: oldOrder, $lte: newOrder } 
+                },
+                { $inc: { order: -1 } }
+            );
+        } else if (oldOrder > newOrder) {
+            // Moving up in the list
+            await Album.updateMany(
+                { 
+                    categoryId,
+                    order: { $lt: oldOrder, $gte: newOrder } 
+                },
+                { $inc: { order: 1 } }
+            );
+        }
+        
+        // Update the album's order
+        albumToReorder.order = newOrder;
+        await albumToReorder.save();
+        
+        res.json({ message: "Album reordered successfully", album: albumToReorder });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
