@@ -3,8 +3,9 @@ const Image = require("../models/Image");
 
 exports.createAlbum = async (req, res) => {
     try {
-        const { name, categoryId, coverImage, order } = req.body;
-        const newAlbum = new Album({ name, categoryId, coverImage, order });
+        const { name, categoryId, coverImage, order,description } = req.body;
+        
+        const newAlbum = new Album({ name, categoryId, coverImage, order,description });
         await newAlbum.save();
         res.status(201).json(newAlbum);
     } catch (error) {
