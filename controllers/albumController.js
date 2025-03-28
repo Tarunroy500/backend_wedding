@@ -13,6 +13,10 @@ exports.createAlbum = async (req, res) => {
 };
 
 exports.getAlbums = async (req, res) => {
+    if (req.query.categoryId) {
+        const albums = await Album.find({ categoryId: req.query.categoryId }).sort({ order: 1 });
+        return res.json(albums);
+    }
     const albums = await Album.find().sort({ order: 1 });
     res.json(albums);
 };
