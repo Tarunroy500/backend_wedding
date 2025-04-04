@@ -19,7 +19,7 @@ exports.sendContactEmail = async (req, res) => {
       selectedPackage,
       emiPreference,
     } = req.body;
-    console.log(req.body);
+    // console.log(req.body);
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_RECIEVER,
@@ -42,7 +42,7 @@ exports.sendContactEmail = async (req, res) => {
                 <p>${message}</p>
             `,
       };
-      console.log(mailOptions);
+    //   console.log(mailOptions);
       
 
     await transporter.sendMail(mailOptions);
